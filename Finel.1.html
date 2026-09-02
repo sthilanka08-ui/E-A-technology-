@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Store — POS System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<style>
+  :root{
+    --accent:#16a34a;
+    --accent-dark:#15803d;
+    --accent-light:#dcfce7;
+    --bg:#f4f7f6;
+    --surface:#ffffff;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+  }
+  [data-theme="dark"]{
+    --bg:#0f1115;
+    --surface:#1a1d23;
+    --text:#e5e7eb;
+    --muted:#9ca3af;
+    --border:#2a2e37;
+    --accent-light:#0f2e1a;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,-apple-system,sans-serif; transition:background .2s,color .2s;}
+  .surface{background:var(--surface); border:1px solid var(--border);}
+  .glass{
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    backdrop-filter: blur(12px);
+    border:1px solid var(--border);
+  }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
+    padding:.55rem 1rem; border-radius:.6rem; font-weight:600; font-size:.875rem;
+    transition:all .15s; cursor:pointer; border:1px solid transparent; white-space:nowrap;
+  }
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:hover{background:var(--accent-dark);}
+  .btn-secondary{background:transparent; border-color:var(--border); color:var(--text);}
+  .btn-secondary:hover{background:var(--accent-light);}
+  .btn-danger{background:#dc2626; color:#fff;}
+  .btn-danger:hover{background:#b91c1c;}
+  .btn-warning{background:#d97706; color:#fff;}
+  .btn-warning:hover{background:#b45309;}
+  .btn-sm{padding:.35rem .65rem; font-size:.78rem;}
+  input,select,textarea{
+    background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:.55rem; padding:.5rem .7rem; font-size:.875rem; width:100%;
+    outline:none; transition:border-color .15s;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);}
+  table{width:100%; border-collapse:collapse; font-size:.875rem;}
+  th{text-align:left; color:var(--muted); font-weight:600; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em; padding:.6rem .8rem; border-bottom:1px solid var(--border);}
+  td{padding:.65rem .8rem; border-bottom:1px solid var(--border);}
+  tr:hover td{background:color-mix(in srgb, var(--accent) 5%, transparent);}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:1rem;}
+  .scrollbar-thin::-webkit-scrollbar{width:6px; height:6px;}
+  .scrollbar-thin::-webkit-scrollbar-thumb{background:var(--border); border-radius:10px;}
+  .nav-item{display:flex; align-items:center; gap:.7rem; padding:.65rem .9rem; border-radius:.6rem; color:var(--muted); font-weight:500; font-size:.875rem; cursor:pointer; transition:all .15s;}
+  .nav-item:hover{background:var(--accent-light); color:var(--accent);}
+  .nav-item.active{background:var(--accent); color:#fff;}
+  .modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:1rem;}
+  .modal-box{background:var(--surface); border-radius:1rem; max-height:90vh; overflow-y:auto; width:100%;}
+  .badge{display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.7rem; font-weight:700;}
+  .toast{position:fixed; bottom:1.2rem; right:1.2rem; z-index:200; padding:.8rem 1.2rem; border-radius:.7rem; background:var(--text); color:var(--bg); font-size:.875rem; font-weight:500; box-shadow:0 8px 24px rgba(0,0,0,.2); animation:slidein .2s ease-out;}
+  @keyframes slidein{from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+</style>
+</head>
+<body data-theme="light">
+
+<!-- LOGIN LOCK SCREEN OVERLAY -->
+<div id="login-screen" class="fixed inset-0 z-[300] flex items-center justify-center p-4" style="background:var(--bg)">
+  <div class="card p-6 max-w-sm w-full text-center shadow-2xl">
+    <div id="login-logo" class="text-5xl mb-2">🛒</div>
+    <h2 id="login-title" class="text-xl font-bold mb-1">Demo Store</h2>
+    <p class="text-xs text-gray-400 mb-4">Enter Password to Access System</p>
+    
+    <input id="login-pass-input" type="password" placeholder="Enter Password" class="text-center text-lg tracking-widest mb-3" onkeydown="if(event.key==='Enter') checkPassword()">
+    <button class="btn btn-primary w-full py-2 mb-3" onclick="checkPassword()">Unlock System</button>
+    <div class="text-[11px] text-gray-400">Default Password: <span class="font-bold text-green-600">1234</span></div>
+  </div>
+</div>
+
+<div id="app" class="min-h-screen flex hidden">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="hidden md:flex flex-col w-64 shrink-0 surface p-4 gap-1 min-h-screen sticky top-0">
+    <div class="flex items-center gap-3 px-2 py-3 mb-3">
+      <div id="brand-logo" class="text-3xl">🛒</div>
+      <div>
+        <div id="brand-name" class="font-bold text-lg leading-tight">Demo Store</div>
+        <div class="text-xs" style="color:var(--muted)">POS System</div>
+      </div>
+    </div>
+    <nav id="nav-list" class="flex flex-col gap-1"></nav>
+    <div class="mt-auto pt-4 border-t space-y-1" style="border-color:var(--border)">
+      <div class="nav-item" onclick="toggleTheme()">
+        <span id="theme-icon">🌙</span> <span id="theme-label">Dark Mode</span>
+      </div>
+      <div class="nav-item text-red-500 hover:bg-red-50" onclick="lockSystem()">
+        <span>🔒</span> <span>Lock System</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile bottom nav -->
+  <nav id="mobile-nav" class="md:hidden fixed bottom-0 left-0 right-0 surface flex justify-around py-2 z-50 border-t" style="border-color:var(--border)"></nav>
+
+  <!-- Main Content Area -->
+  <div class="flex-1 flex flex-col min-w-0">
+    <header class="glass sticky top-0 z-40 flex items-center justify-between px-4 md:px-6 py-3">
+      <div>
+        <h1 id="page-title" class="text-lg md:text-xl font-bold">Dashboard</h1>
+        <div id="page-subtitle" class="text-xs" style="color:var(--muted)"></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button class="btn btn-secondary btn-sm md:hidden" onclick="lockSystem()">🔒 Lock</button>
+        <div id="clock" class="hidden sm:block text-xs text-right" style="color:var(--muted)"></div>
+      </div>
+    </header>
+    <main id="main-content" class="flex-1 p-4 md:p-6 pb-24 md:pb-6 scrollbar-thin overflow-x-hidden"></main>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<iframe id="print-frame" style="display:none;"></iframe>
+
+<script>
+/* =========================================================
+   STATE & STORAGE
+========================================================= */
+const DB_KEYS = {
+  settings:'pos_settings', products:'pos_products', categories:'pos_categories',
+  sales:'pos_sales', invoiceCounter:'pos_invoice_counter', customers:'pos_customers', heldOrders:'pos_held_orders'
+};
+
+function load(key, fallback){
+  try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e){ return fallback; }
+}
+function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+let SETTINGS = load(DB_KEYS.settings, null);
+let PRODUCTS = load(DB_KEYS.products, null);
+let CATEGORIES = load(DB_KEYS.categories, null);
+let SALES = load(DB_KEYS.sales, null);
+let CUSTOMERS = load(DB_KEYS.customers, null);
+let HELD_ORDERS = load(DB_KEYS.heldOrders, null);
+let INVOICE_COUNTER = load(DB_KEYS.invoiceCounter, null);
+
+const DEFAULT_SETTINGS = {
+  companyName:'Demo Store', logo:'🛒', address:'123 Main Street, City',
+  phone:'+1 (555) 123-4567', currency:'$', taxPercent:10,
+  footer:'Thank you for shopping with us!', accent:'#16a34a',
+  theme:'light', receiptWidth:'80', cashierName:'Admin',
+  systemPassword:'1234'
+};
+
+function uid(){ return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+function seedIfEmpty(){
+  if(!SETTINGS){ SETTINGS = {...DEFAULT_SETTINGS}; save(DB_KEYS.settings, SETTINGS); }
+  if(!SETTINGS.systemPassword){ SETTINGS.systemPassword = '1234'; save(DB_KEYS.settings, SETTINGS); }
+  if(!CUSTOMERS){ CUSTOMERS = []; save(DB_KEYS.customers, CUSTOMERS); }
+  if(!HELD_ORDERS){ HELD_ORDERS = []; save(DB_KEYS.heldOrders, HELD_ORDERS); }
+  if(!CATEGORIES){
+    CATEGORIES = [
+      {id:'cat1', name:'Beverages'}, {id:'cat2', name:'Snacks'},
+      {id:'cat3', name:'Groceries'}, {id:'cat4', name:'Household'}
+    ];
+    save(DB_KEYS.categories, CATEGORIES);
+  }
+  if(!PRODUCTS){
+    PRODUCTS = [
+      {id:uid(), name:'Coca Cola 500ml', sku:'BEV001', category:'cat1', cost:0.6, price:1.5, stock:48, minStock:10, expiry:''},
+      {id:uid(), name:'Mineral Water 1L', sku:'BEV002', category:'cat1', cost:0.3, price:1.0, stock:60, minStock:15, expiry:''},
+      {id:uid(), name:'Potato Chips', sku:'SNK001', category:'cat2', cost:0.8, price:2.0, stock:5, minStock:10, expiry:''},
+      {id:uid(), name:'Chocolate Bar', sku:'SNK002', category:'cat2', cost:0.5, price:1.5, stock:35, minStock:10, expiry:''},
+      {id:uid(), name:'Rice 5kg', sku:'GRC001', category:'cat3', cost:6.0, price:8.5, stock:20, minStock:5, expiry:''},
+      {id:uid(), name:'Cooking Oil 1L', sku:'GRC002', category:'cat3', cost:2.5, price:3.75, stock:3, minStock:8, expiry:''},
+      {id:uid(), name:'Dish Soap', sku:'HH001', category:'cat4', cost:1.2, price:2.5, stock:25, minStock:6, expiry:''},
+      {id:uid(), name:'Paper Towels', sku:'HH002', category:'cat4', cost:1.8, price:3.2, stock:18, minStock:5, expiry:''}
+    ];
+    save(DB_KEYS.products, PRODUCTS);
+  }
+  if(!INVOICE_COUNTER){ INVOICE_COUNTER = 1000; save(DB_KEYS.invoiceCounter, INVOICE_COUNTER); }
+  if(!SALES){ SALES = []; save(DB_KEYS.sales, SALES); }
+}
+seedIfEmpty();
+
+/* =========================================================
+   SECURITY & LOCK SYSTEM
+========================================================= */
+function checkPassword(){
+  const input = document.getElementById('login-pass-input').value;
+  if(input === (SETTINGS.systemPassword || '1234')){
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    document.getElementById('login-pass-input').value = '';
+    initSystem();
+  } else {
+    alert('Incorrect Password! Try again.');
+    document.getElementById('login-pass-input').value = '';
+    document.getElementById('login-pass-input').focus();
+  }
+}
+
+function lockSystem(){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  setTimeout(() => document.getElementById('login-pass-input').focus(), 100);
+}
+
+/* =========================================================
+   UTILITIES & THEME
+========================================================= */
+function fmt(n){ return (SETTINGS.currency||'$') + (Number(n)||0).toFixed(2); }
+function fmtDate(ts){ const d=new Date(ts); return d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+function toast(msg, type){
+  const el = document.createElement('div');
+  el.className='toast';
+  if(type==='error'){ el.style.background='#dc2626'; el.style.color='#fff'; }
+  if(type==='success'){ el.style.background=SETTINGS.accent; el.style.color='#fff'; }
+  el.textContent = msg;
+  document.getElementById('toast-root').appendChild(el);
+  setTimeout(()=>el.remove(), 2600);
+}
+function categoryName(id){ const c = CATEGORIES.find(c=>c.id===id); return c?c.name:'Uncategorized'; }
+function closeModal(){ 
+  if(html5QrcodeScanner){ html5QrcodeScanner.clear().catch(()=>{}); html5QrcodeScanner = null; }
+  document.getElementById('modal-root').innerHTML=''; 
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function applyTheme(){
+  document.body.setAttribute('data-theme', SETTINGS.theme||'light');
+  document.documentElement.style.setProperty('--accent', SETTINGS.accent||'#16a34a');
+  document.getElementById('theme-icon').textContent = SETTINGS.theme==='dark' ? '☀️' : '🌙';
+  document.getElementById('theme-label').textContent = SETTINGS.theme==='dark' ? 'Light Mode' : 'Dark Mode';
+}
+function toggleTheme(){
+  SETTINGS.theme = SETTINGS.theme==='dark' ? 'light' : 'dark';
+  save(DB_KEYS.settings, SETTINGS);
+  applyTheme();
+}
+function applyBrand(){
+  document.getElementById('brand-name').textContent = SETTINGS.companyName;
+  document.getElementById('brand-logo').textContent = SETTINGS.logo;
+  document.getElementById('login-title').textContent = SETTINGS.companyName;
+  document.getElementById('login-logo').textContent = SETTINGS.logo;
+  document.title = SETTINGS.companyName + ' — POS System';
+}
+
+/* =========================================================
+   ROUTER / NAVIGATION
+========================================================= */
+const ROUTES = [
+  {id:'dashboard', label:'Dashboard', icon:'📊'},
+  {id:'pos', label:'POS Billing', icon:'🧾'},
+  {id:'products', label:'Products', icon:'📦'},
+  {id:'categories', label:'Categories', icon:'🏷️'},
+  {id:'customers', label:'Customers & Credit', icon:'👥'},
+  {id:'sales', label:'Sales History', icon:'🕘'},
+  {id:'reports', label:'Reports', icon:'📈'},
+  {id:'settings', label:'Settings', icon:'⚙️'}
+];
+let CURRENT_ROUTE = 'dashboard';
+
+function renderNav(){
+  const nav = document.getElementById('nav-list');
+  nav.innerHTML = ROUTES.map(r=>`
+    <div class="nav-item ${CURRENT_ROUTE===r.id?'active':''}" onclick="navigate('${r.id}')">
+      <span>${r.icon}</span><span>${r.label}</span>
+    </div>`).join('');
+  const mobile = document.getElementById('mobile-nav');
+  mobile.innerHTML = ROUTES.filter(r=>['dashboard','pos','products','customers','sales'].includes(r.id)).map(r=>`
+    <div class="flex flex-col items-center text-[10px] gap-0.5 px-2 py-1 rounded-lg cursor-pointer ${CURRENT_ROUTE===r.id?'accent-text font-bold':''}" style="color:${CURRENT_ROUTE===r.id?'var(--accent)':'var(--muted)'}" onclick="navigate('${r.id}')">
+      <span class="text-base">${r.icon}</span>${r.label.split(' ')[0]}
+    </div>`).join('');
+}
+
+function navigate(route){
+  CURRENT_ROUTE = route;
+  renderNav();
+  const titles = {
+    dashboard:['Dashboard','Overview of your store performance'],
+    pos:['POS Billing','Create a new sale'],
+    products:['Products','Manage your inventory'],
+    categories:['Categories','Organize your products'],
+    customers:['Customers & Credit','Manage Customer Points & Credit Book'],
+    sales:['Sales History','Browse past transactions'],
+    reports:['Reports & Analytics','Business performance insights'],
+    settings:['Settings','Configure your store & Security']
+  };
+  document.getElementById('page-title').textContent = titles[route][0];
+  document.getElementById('page-subtitle').textContent = titles[route][1];
+  
+  const renderers = {
+    dashboard:renderDashboard, pos:renderPOS, products:renderProductsView,
+    categories:renderCategories, customers:renderCustomers, sales:renderSales, reports:renderReports, settings:renderSettings
+  };
+  renderers[route]();
+}
+
+function tickClock(){
+  document.getElementById('clock').innerHTML = new Date().toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}) + '<br>' + new Date().toLocaleTimeString();
+}
+setInterval(tickClock, 1000);
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+function renderDashboard(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todaySales = SALES.filter(s=>s.date >= today.getTime() && s.status !== 'returned');
+  const todayTotal = todaySales.reduce((s,x)=>s+x.total,0);
+  const todayProfit = todaySales.reduce((s,x)=>s+x.profit,0);
+  
+  const lowStockItems = PRODUCTS.filter(p=>p.stock <= p.minStock);
+  const now = Date.now();
+  const expiringItems = PRODUCTS.filter(p=> p.expiry && (new Date(p.expiry).getTime() - now < 30 * 24 * 60 * 60 * 1000));
+  const recent = [...SALES].sort((a,b)=>b.date-a.date).slice(0,5);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="card p-4"><div class="text-xs text-gray-500 mb-1">Today's Sales</div><div class="text-xl font-bold text-green-600">${fmt(todayTotal)}</div></div>
+      <div class="card p-4"><div class="text-xs text-gray-500 mb-1">Today's Profit</div><div class="text-xl font-bold text-blue-600">${fmt(todayProfit)}</div></div>
+      <div class="card p-4"><div class="text-xs text-gray-500 mb-1">Total Orders</div><div class="text-xl font-bold text-purple-600">${todaySales.length}</div></div>
+      <div class="card p-4"><div class="text-xs text-gray-500 mb-1">Low Stock Alerts</div><div class="text-xl font-bold text-red-600">${lowStockItems.length}</div></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="card p-4 border-l-4 border-l-red-500">
+        <h3 class="font-bold mb-2 flex items-center gap-2 text-red-600">⚠️ Low Stock Items (${lowStockItems.length})</h3>
+        <div class="max-h-40 overflow-y-auto scrollbar-thin">
+          ${lowStockItems.length ? `
+            <table class="text-xs">
+              <thead><tr><th>Item Name</th><th>SKU</th><th>Remaining</th><th>Min Limit</th></tr></thead>
+              <tbody>
+                ${lowStockItems.map(p=>`
+                  <tr>
+                    <td class="font-semibold text-red-600">${esc(p.name)}</td>
+                    <td>${esc(p.sku)}</td>
+                    <td><span class="badge bg-red-100 text-red-600">${p.stock}</span></td>
+                    <td>${p.minStock}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          ` : '<div class="text-xs text-gray-400 py-2">All stock levels are optimal!</div>'}
+        </div>
+      </div>
+
+      <div class="card p-4 border-l-4 border-l-amber-500">
+        <h3 class="font-bold mb-2 flex items-center gap-2 text-amber-600">⏳ Expiry Alerts (${expiringItems.length})</h3>
+        <div class="max-h-40 overflow-y-auto scrollbar-thin">
+          ${expiringItems.length ? `
+            <table class="text-xs">
+              <thead><tr><th>Item Name</th><th>Expiry Date</th><th>Stock</th></tr></thead>
+              <tbody>
+                ${expiringItems.map(p=>`
+                  <tr>
+                    <td class="font-semibold">${esc(p.name)}</td>
+                    <td class="text-amber-600 font-bold">${p.expiry}</td>
+                    <td>${p.stock}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          ` : '<div class="text-xs text-gray-400 py-2">No items expiring soon!</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <h3 class="font-bold mb-3">Recent Transactions</h3>
+      <div class="overflow-x-auto">
+        <table>
+          <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody>
+            ${recent.length ? recent.map(s=>`
+              <tr>
+                <td class="font-semibold">${s.invoiceNo}</td>
+                <td>${fmtDate(s.date)}</td>
+                <td>${esc(s.customerName||'Walk-in')}</td>
+                <td class="font-bold">${fmt(s.total)}</td>
+                <td><span class="badge" style="background:${s.status==='returned'?'#fee2e2':'#dcfce7'};color:${s.status==='returned'?'#dc2626':'#16a34a'}">${s.status}</span></td>
+              </tr>`).join('') : `<tr><td colspan="5" class="text-center py-4 text-gray-400">No transactions yet</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* =========================================================
+   PRODUCTS VIEW
+========================================================= */
+let PROD_SEARCH = '', PROD_CAT_FILTER = '';
+
+function renderProductsView(){
+  document.getElementById('main-content').innerHTML = `
+    <div class="flex flex-col sm:flex-row gap-2 justify-between mb-4">
+      <div class="flex gap-2 flex-1 max-w-md">
+        <input id="prod-search-input" placeholder="🔍 Search by name or SKU..." value="${esc(PROD_SEARCH)}" oninput="filterProductsTable(this.value, null)">
+        <select id="prod-cat-select" onchange="filterProductsTable(null, this.value)" class="max-w-[150px]">
+          <option value="">All Categories</option>
+          ${CATEGORIES.map(c=>`<option value="${c.id}" ${PROD_CAT_FILTER===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+    </div>
+    <div class="card overflow-x-auto">
+      <table>
+        <thead><tr><th>Name</th><th>SKU</th><th>Category</th><th>Cost</th><th>Price</th><th>Stock</th><th>Expiry</th><th></th></tr></thead>
+        <tbody id="products-table-body">
+          ${PRODUCTS.map(p=>`
+            <tr class="prod-row" data-search="${esc((p.name+' '+p.sku).toLowerCase())}" data-cat="${p.category}">
+              <td class="font-semibold">${esc(p.name)}</td>
+              <td style="color:var(--muted)">${esc(p.sku)}</td>
+              <td>${esc(categoryName(p.category))}</td>
+              <td>${fmt(p.cost)}</td>
+              <td class="font-bold text-green-600">${fmt(p.price)}</td>
+              <td><span class="badge ${p.stock<=p.minStock?'bg-red-100 text-red-600':'bg-green-100 text-green-600'}">${p.stock}</span></td>
+              <td class="text-xs">${p.expiry||'-'}</td>
+              <td class="flex gap-2 justify-end">
+                <button class="btn btn-secondary btn-sm" onclick="openProductModal('${p.id}')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">Delete</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function filterProductsTable(searchVal, catVal){
+  if(searchVal !== null) PROD_SEARCH = searchVal.toLowerCase();
+  if(catVal !== null) PROD_CAT_FILTER = catVal;
+
+  const rows = document.querySelectorAll('#products-table-body .prod-row');
+  rows.forEach(row => {
+    const text = row.getAttribute('data-search') || '';
+    const cat = row.getAttribute('data-cat') || '';
+    const matchSearch = !PROD_SEARCH || text.includes(PROD_SEARCH);
+    const matchCat = !PROD_CAT_FILTER || cat === PROD_CAT_FILTER;
+    row.style.display = (matchSearch && matchCat) ? '' : 'none';
+  });
+}
+
+function calcSuggestedPrice(){
+  const cost = parseFloat(document.getElementById('p-cost').value) || 0;
+  const margin = parseFloat(document.getElementById('p-margin').value) || 0;
+  if(cost > 0 && margin >= 0){
+    const price = cost + (cost * margin / 100);
+    document.getElementById('p-price').value = price.toFixed(2);
+  }
+}
+
+function openProductModal(id){
+  const p = id ? PRODUCTS.find(p=>p.id===id) : null;
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-5 max-w-lg">
+        <h3 class="font-bold text-lg mb-4">${p?'Edit':'Add'} Product</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2"><label class="text-xs font-semibold">Name</label><input id="p-name" value="${p?esc(p.name):''}"></div>
+          <div><label class="text-xs font-semibold">SKU / Barcode</label><input id="p-sku" value="${p?esc(p.sku):''}"></div>
+          <div><label class="text-xs font-semibold">Category</label>
+            <select id="p-cat">${CATEGORIES.map(c=>`<option value="${c.id}" ${p&&p.category===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+          </div>
+          <div><label class="text-xs font-semibold">Cost Price</label><input id="p-cost" type="number" step="0.01" value="${p?p.cost:''}" oninput="calcSuggestedPrice()"></div>
+          <div><label class="text-xs font-semibold">Profit Margin % (Auto)</label><input id="p-margin" type="number" placeholder="e.g. 20" oninput="calcSuggestedPrice()"></div>
+          <div><label class="text-xs font-semibold">Selling Price</label><input id="p-price" type="number" step="0.01" value="${p?p.price:''}"></div>
+          <div><label class="text-xs font-semibold">Stock Qty</label><input id="p-stock" type="number" value="${p?p.stock:''}"></div>
+          <div><label class="text-xs font-semibold">Min Warning Stock</label><input id="p-minstock" type="number" value="${p?p.minStock:5}"></div>
+          <div><label class="text-xs font-semibold">Expiry Date</label><input id="p-expiry" type="date" value="${p?p.expiry||'':''}"></div>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button class="btn btn-secondary flex-1" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary flex-1" onclick="saveProduct('${id||''}')">Save</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function saveProduct(id){
+  const name = document.getElementById('p-name').value.trim();
+  const sku = document.getElementById('p-sku').value.trim();
+  const category = document.getElementById('p-cat').value;
+  const cost = parseFloat(document.getElementById('p-cost').value)||0;
+  const price = parseFloat(document.getElementById('p-price').value)||0;
+  const stock = parseInt(document.getElementById('p-stock').value)||0;
+  const minStock = parseInt(document.getElementById('p-minstock').value)||0;
+  const expiry = document.getElementById('p-expiry').value;
+
+  if(!name || !sku){ toast('Name and SKU are required','error'); return; }
+  
+  if(id){
+    const p = PRODUCTS.find(p=>p.id===id);
+    Object.assign(p, {name, sku, category, cost, price, stock, minStock, expiry});
+  } else {
+    PRODUCTS.push({id:uid(), name, sku, category, cost, price, stock, minStock, expiry});
+  }
+  save(DB_KEYS.products, PRODUCTS);
+  closeModal(); toast('Product Saved','success'); renderProductsView();
+}
+
+function deleteProduct(id){
+  if(!confirm('Delete this product?')) return;
+  PRODUCTS = PRODUCTS.filter(p=>p.id!==id);
+  save(DB_KEYS.products, PRODUCTS);
+  toast('Product Deleted','success'); renderProductsView();
+}
+
+/* =========================================================
+   POS BILLING
+========================================================= */
+let CART = [];
+let POS_SEARCH = '';
+let CART_DISCOUNT = 0;
+let CASH_RECEIVED = 0;
+let SELECTED_CUSTOMER = null;
+let PAYMENT_METHOD = 'cash';
+let html5QrcodeScanner = null;
+
+function renderPOS(){
+  document.getElementById('main-content').innerHTML = `
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div class="lg:col-span-3 card p-4">
+        <div class="flex gap-2 mb-3">
+          <input id="pos-search-input" placeholder="🔍 Scan or type product name/SKU..." value="${esc(POS_SEARCH)}" oninput="filterPOSGrid(this.value)" autofocus class="flex-1">
+          <button class="btn btn-secondary" onclick="openScannerModal()">📷 Scan Barcode</button>
+        </div>
+        <div id="pos-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto scrollbar-thin pr-1">
+          ${PRODUCTS.map(p=>`
+            <div class="pos-card card p-3 cursor-pointer hover:shadow-md transition ${p.stock<=0?'opacity-40 pointer-events-none':''}"
+                 data-search="${esc((p.name + ' ' + p.sku).toLowerCase())}" onclick="addToCart('${p.id}')">
+              <div class="text-2xl mb-1">📦</div>
+              <div class="text-sm font-semibold truncate">${esc(p.name)}</div>
+              <div class="text-xs text-gray-400">${esc(p.sku)}</div>
+              <div class="flex justify-between items-center mt-2">
+                <span class="font-bold text-green-600">${fmt(p.price)}</span>
+                <span class="text-xs ${p.stock<=p.minStock?'text-red-500 font-bold':'text-gray-400'}">Stk: ${p.stock}</span>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 card p-4 flex flex-col">
+        <div class="mb-3 p-2 border rounded-lg surface flex justify-between items-center">
+          <div>
+            <div class="text-xs text-gray-400">Customer</div>
+            <div id="pos-cust-name" class="text-sm font-bold">${SELECTED_CUSTOMER ? esc(SELECTED_CUSTOMER.name) : 'Walk-in Customer'}</div>
+            <div id="pos-cust-pts" class="text-[10px] text-green-600">${SELECTED_CUSTOMER ? 'Points: '+SELECTED_CUSTOMER.points : ''}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="openSelectCustomerModal()">Select / Add</button>
+        </div>
+
+        <div class="flex justify-between items-center mb-2">
+          <h3 id="pos-cart-count" class="font-bold">🛒 Cart (0 items)</h3>
+          ${HELD_ORDERS.length ? `<button class="btn btn-warning btn-sm" onclick="openHeldOrdersModal()">Hold Orders (${HELD_ORDERS.length})</button>` : ''}
+        </div>
+
+        <div id="pos-cart-items" class="flex-1 overflow-y-auto scrollbar-thin max-h-[25vh] mb-3"></div>
+
+        <div class="flex items-center gap-2 mb-2">
+          <label class="text-xs font-semibold w-28 text-gray-500">Discount (${SETTINGS.currency})</label>
+          <input id="pos-discount-input" type="number" min="0" step="0.01" value="${CART_DISCOUNT||''}" oninput="CART_DISCOUNT=parseFloat(this.value)||0; updateCalculations();" placeholder="0.00">
+        </div>
+
+        <div class="flex flex-col gap-1 text-sm border-t pt-2" style="border-color:var(--border)">
+          <div class="flex justify-between"><span class="text-gray-500">Subtotal</span><span id="calc-subtotal">${fmt(0)}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Discount</span><span id="calc-discount">-${fmt(0)}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Tax (${SETTINGS.taxPercent}%)</span><span id="calc-tax">${fmt(0)}</span></div>
+          <div class="flex justify-between text-lg font-extrabold text-green-600 border-t pt-1 mt-1" style="border-color:var(--border)"><span>TOTAL</span><span id="calc-total">${fmt(0)}</span></div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1 mt-3">
+          <button class="btn btn-sm ${PAYMENT_METHOD==='cash'?'btn-primary':'btn-secondary'}" onclick="setPayMethod('cash')">Cash</button>
+          <button class="btn btn-sm ${PAYMENT_METHOD==='card'?'btn-primary':'btn-secondary'}" onclick="setPayMethod('card')">Card</button>
+          <button class="btn btn-sm ${PAYMENT_METHOD==='online'?'btn-primary':'btn-secondary'}" onclick="setPayMethod('online')">QR/Online</button>
+          <button class="btn btn-sm ${PAYMENT_METHOD==='credit'?'btn-primary':'btn-secondary'}" onclick="setPayMethod('credit')">Credit (ණය)</button>
+        </div>
+
+        <div class="flex items-center gap-2 mt-2">
+          <label class="text-xs font-semibold w-28 text-gray-500">Amount Paid</label>
+          <input id="pos-cash-input" type="number" min="0" step="0.01" value="${CASH_RECEIVED||''}" oninput="CASH_RECEIVED=parseFloat(this.value)||0; updateCalculations();" placeholder="0.00">
+        </div>
+
+        <div class="flex justify-between text-sm font-bold mt-1">
+          <span class="text-gray-500">Balance</span>
+          <span id="calc-balance" class="text-green-600">${fmt(0)}</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mt-3">
+          <button class="btn btn-secondary" onclick="clearCart()">Clear</button>
+          <button class="btn btn-warning" onclick="holdOrder()">Hold</button>
+          <button id="pos-complete-btn" class="btn btn-primary" onclick="completeSale()">Complete</button>
+        </div>
+      </div>
+    </div>`;
+
+  renderCartList();
+  if(POS_SEARCH) filterPOSGrid(POS_SEARCH);
+}
+
+function setPayMethod(m){ PAYMENT_METHOD = m; renderPOS(); }
+
+function filterPOSGrid(val){
+  POS_SEARCH = val.toLowerCase();
+  const cards = document.querySelectorAll('#pos-grid .pos-card');
+  cards.forEach(card => {
+    const text = card.getAttribute('data-search') || '';
+    card.style.display = (!POS_SEARCH || text.includes(POS_SEARCH)) ? '' : 'none';
+  });
+}
+
+function updateCalculations(){
+  const subtotal = CART.reduce((s,it)=>s+it.price*it.qty,0);
+  const afterDiscount = Math.max(0, subtotal - CART_DISCOUNT);
+  const tax = afterDiscount * (SETTINGS.taxPercent/100);
+  const total = afterDiscount + tax;
+  const balance = CASH_RECEIVED - total;
+
+  document.getElementById('calc-subtotal').textContent = fmt(subtotal);
+  document.getElementById('calc-discount').textContent = '-' + fmt(CART_DISCOUNT);
+  document.getElementById('calc-tax').textContent = fmt(tax);
+  document.getElementById('calc-total').textContent = fmt(total);
+
+  const balEl = document.getElementById('calc-balance');
+  balEl.textContent = fmt(balance);
+  balEl.className = balance < 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold';
+}
+
+function updateCartItemPrice(idx, newPrice){
+  CART[idx].price = parseFloat(newPrice) || 0;
+  const totalEl = document.getElementById(`cart-item-total-${idx}`);
+  if(totalEl) totalEl.textContent = fmt(CART[idx].price * CART[idx].qty);
+  updateCalculations();
+}
+
+function renderCartList(){
+  const container = document.getElementById('pos-cart-items');
+  document.getElementById('pos-cart-count').textContent = `🛒 Cart (${CART.reduce((a,i)=>a+i.qty,0)} items)`;
+
+  const completeBtn = document.getElementById('pos-complete-btn');
+  completeBtn.disabled = CART.length === 0;
+  completeBtn.style.opacity = CART.length === 0 ? '0.5' : '1';
+
+  if(!CART.length){
+    container.innerHTML = `<div class="text-center py-6 text-sm text-gray-400">Cart is empty</div>`;
+    updateCalculations();
+    return;
+  }
+
+  container.innerHTML = CART.map((it,idx)=>`
+    <div class="flex items-center gap-2 py-2 border-b" style="border-color:var(--border)">
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold truncate">${esc(it.name)}</div>
+        <div class="flex items-center gap-1 text-xs text-gray-400">
+          <span>${SETTINGS.currency||'$'}</span>
+          <input type="number" step="0.01" min="0" value="${it.price}" 
+                 class="w-20 py-0.5 px-1 text-xs font-semibold rounded border"
+                 oninput="updateCartItemPrice(${idx}, this.value)">
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm px-2" onclick="changeQty(${idx},-1)">-</button>
+      <span class="w-6 text-center font-bold text-sm">${it.qty}</span>
+      <button class="btn btn-secondary btn-sm px-2" onclick="changeQty(${idx},1)">+</button>
+      <span id="cart-item-total-${idx}" class="w-14 text-right text-xs font-bold">${fmt(it.price*it.qty)}</span>
+      <button class="text-red-500 text-sm px-1" onclick="removeFromCart(${idx})">✕</button>
+    </div>`).join('');
+
+  updateCalculations();
+}
+
+function addToCart(productId){
+  const p = PRODUCTS.find(p=>p.id===productId);
+  if(!p || p.stock<=0){ toast('Out of stock','error'); return; }
+  const existing = CART.find(it=>it.productId===productId);
+  if(existing){
+    if(existing.qty+1 > p.stock){ toast('Stock limit reached','error'); return; }
+    existing.qty++;
+  } else {
+    CART.push({productId:p.id, name:p.name, price:p.price, cost:p.cost, qty:1});
+  }
+  renderCartList();
+}
+
+function changeQty(idx, delta){
+  const it = CART[idx];
+  const p = PRODUCTS.find(p=>p.id===it.productId);
+  if(it.qty + delta <= 0){ CART.splice(idx,1); }
+  else if(p && it.qty + delta > p.stock){ toast('Stock limit reached','error'); }
+  else { it.qty += delta; }
+  renderCartList();
+}
+
+function removeFromCart(idx){ CART.splice(idx,1); renderCartList(); }
+function clearCart(){ CART=[]; CART_DISCOUNT=0; CASH_RECEIVED=0; SELECTED_CUSTOMER=null; PAYMENT_METHOD='cash'; renderPOS(); }
+
+function holdOrder(){
+  if(!CART.length){ toast('Cart is empty','error'); return; }
+  HELD_ORDERS.push({id:uid(), date:Date.now(), cart:[...CART], customer:SELECTED_CUSTOMER, discount:CART_DISCOUNT});
+  save(DB_KEYS.heldOrders, HELD_ORDERS);
+  toast('Order held successfully','success');
+  clearCart();
+}
+
+function openHeldOrdersModal(){
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-5 max-w-md">
+        <h3 class="font-bold text-lg mb-3">Held Orders</h3>
+        ${HELD_ORDERS.map((h,i)=>`
+          <div class="flex justify-between items-center p-2 border-b">
+            <div>
+              <div class="font-bold text-sm">${h.customer?esc(h.customer.name):'Walk-in'} (${h.cart.length} items)</div>
+              <div class="text-xs text-gray-400">${fmtDate(h.date)}</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="restoreHeldOrder(${i})">Restore</button>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function restoreHeldOrder(index){
+  const h = HELD_ORDERS.splice(index,1)[0];
+  save(DB_KEYS.heldOrders, HELD_ORDERS);
+  CART = h.cart;
+  SELECTED_CUSTOMER = h.customer;
+  CART_DISCOUNT = h.discount;
+  closeModal();
+  renderPOS();
+}
+
+function openScannerModal(){
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-5 max-w-md text-center">
+        <h3 class="font-bold mb-3">Scan Product Barcode</h3>
+        <div id="reader" class="w-full"></div>
+        <button class="btn btn-secondary mt-3 w-full" onclick="closeModal()">Close</button>
+      </div>
+    </div>`;
+  
+  setTimeout(()=>{
+    html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+    html5QrcodeScanner.render((decodedText)=>{
+      const p = PRODUCTS.find(pr=>pr.sku===decodedText);
+      if(p){
+        addToCart(p.id);
+        toast(`Added: ${p.name}`,'success');
+        closeModal();
+      } else {
+        toast('Product not found: '+decodedText,'error');
+      }
+    });
+  }, 300);
+}
+
+function openSelectCustomerModal(){
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-5 max-w-md">
+        <h3 class="font-bold mb-3">Select / Add Customer</h3>
+        <div class="flex gap-2 mb-3">
+          <input id="new-c-name" placeholder="Name">
+          <input id="new-c-phone" placeholder="Phone">
+          <button class="btn btn-primary" onclick="quickAddCustomer()">Add</button>
+        </div>
+        <div class="max-h-60 overflow-y-auto">
+          ${CUSTOMERS.map(c=>`
+            <div class="flex justify-between items-center p-2 border-b hover:bg-gray-100 cursor-pointer" onclick="selectCustomer('${c.id}')">
+              <div>
+                <div class="font-semibold text-sm">${esc(c.name)}</div>
+                <div class="text-xs text-gray-400">${esc(c.phone)} | Pts: ${c.points||0} | Credit: ${fmt(c.credit||0)}</div>
+              </div>
+              <button class="btn btn-secondary btn-sm">Select</button>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function quickAddCustomer(){
+  const name = document.getElementById('new-c-name').value.trim();
+  const phone = document.getElementById('new-c-phone').value.trim();
+  if(!name || !phone) return;
+  const newC = {id:uid(), name, phone, points:0, credit:0};
+  CUSTOMERS.push(newC);
+  save(DB_KEYS.customers, CUSTOMERS);
+  SELECTED_CUSTOMER = newC;
+  closeModal();
+  renderPOS();
+}
+
+function selectCustomer(id){
+  SELECTED_CUSTOMER = CUSTOMERS.find(c=>c.id===id);
+  closeModal();
+  renderPOS();
+}
+
+function completeSale(){
+  if(!CART.length) return;
+  const subtotal = CART.reduce((s,it)=>s+it.price*it.qty,0);
+  const afterDiscount = Math.max(0, subtotal - CART_DISCOUNT);
+  const tax = afterDiscount * (SETTINGS.taxPercent/100);
+  const total = afterDiscount + tax;
+  const cost = CART.reduce((s,it)=>s+it.cost*it.qty,0);
+
+  if(PAYMENT_METHOD !== 'credit' && CASH_RECEIVED && CASH_RECEIVED < total){ 
+    toast('Insufficient cash provided','error'); return; 
+  }
+
+  CART.forEach(it=>{
+    const p = PRODUCTS.find(p=>p.id===it.productId);
+    if(p) p.stock = Math.max(0, p.stock - it.qty);
+  });
+  save(DB_KEYS.products, PRODUCTS);
+
+  if(SELECTED_CUSTOMER){
+    const cust = CUSTOMERS.find(c=>c.id===SELECTED_CUSTOMER.id);
+    if(cust){
+      cust.points = (cust.points||0) + Math.floor(total * 0.1);
+      if(PAYMENT_METHOD === 'credit'){
+        cust.credit = (cust.credit||0) + total;
+      }
+      save(DB_KEYS.customers, CUSTOMERS);
+    }
+  }
+
+  INVOICE_COUNTER++;
+  save(DB_KEYS.invoiceCounter, INVOICE_COUNTER);
+
+  const sale = {
+    id: uid(), invoiceNo:'INV-'+INVOICE_COUNTER, date: Date.now(),
+    items: [...CART], subtotal, discount:CART_DISCOUNT, tax, total, cost, profit: afterDiscount - cost,
+    cashReceived: CASH_RECEIVED||total, balance: (CASH_RECEIVED||total)-total,
+    paymentMethod: PAYMENT_METHOD,
+    customerName: SELECTED_CUSTOMER?SELECTED_CUSTOMER.name:'Walk-in',
+    customerPhone: SELECTED_CUSTOMER?SELECTED_CUSTOMER.phone:'',
+    cashier: SETTINGS.cashierName, status:'completed'
+  };
+
+  SALES.push(sale);
+  save(DB_KEYS.sales, SALES);
+
+  toast('Sale completed! '+sale.invoiceNo,'success');
+  showReceipt(sale.id);
+  clearCart();
+}
+
+/* =========================================================
+   RECEIPT & IFRAME PRINT ENGINE
+========================================================= */
+function buildReceiptTemplate(sale){
+  return `
+    <div style="font-family: monospace; width: 270px; padding: 5px; color: #000; background: #fff;">
+      <div style="text-align: center; font-weight: bold; font-size: 15px;">${esc(SETTINGS.companyName)}</div>
+      <div style="text-align: center; font-size: 10px; margin-bottom: 8px;">${esc(SETTINGS.address)} ${SETTINGS.phone ? '| '+esc(SETTINGS.phone) : ''}</div>
+      <div style="font-size: 11px;">Inv: ${sale.invoiceNo}</div>
+      <div style="font-size: 11px;">Date: ${fmtDate(sale.date)}</div>
+      <div style="font-size: 11px;">Customer: ${esc(sale.customerName||'Walk-in')}</div>
+      <div style="font-size: 11px;">Payment: ${sale.paymentMethod.toUpperCase()}</div>
+      <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+      ${sale.items.map(i=>`
+        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+          <span>${esc(i.name)} x${i.qty}</span>
+          <span>${fmt(i.price*i.qty)}</span>
+        </div>
+      `).join('')}
+      <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px;"><span>Subtotal:</span><span>${fmt(sale.subtotal)}</span></div>
+      ${sale.discount ? `<div style="display: flex; justify-content: space-between; font-size: 11px;"><span>Discount:</span><span>-${fmt(sale.discount)}</span></div>` : ''}
+      <div style="display: flex; justify-content: space-between; font-size: 11px;"><span>Tax:</span><span>${fmt(sale.tax)}</span></div>
+      <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-top: 4px;">
+        <span>TOTAL:</span>
+        <span>${fmt(sale.total)}</span>
+      </div>
+      <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+      <div style="text-align: center; font-size: 11px; margin-top: 8px;">${esc(SETTINGS.footer||'Thank you for shopping!')}</div>
+    </div>
+  `;
+}
+
+function showReceipt(saleId){
+  const sale = SALES.find(s=>s.id===saleId);
+  if(!sale) return;
+
+  const html = buildReceiptTemplate(sale);
+
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-5 max-w-sm">
+        <h3 class="font-bold text-lg mb-3">Receipt Preview</h3>
+        <div class="bg-white p-2 rounded text-black border flex justify-center">${html}</div>
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+          <button class="btn btn-primary" onclick="printReceiptDirect('${sale.id}')">🖨️ Print</button>
+          <button class="btn btn-warning col-span-2" onclick="shareWhatsApp('${sale.id}')">📱 Share via WhatsApp</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function printReceiptDirect(saleId){
+  const sale = SALES.find(s=>s.id===saleId);
+  if(!sale) return;
+
+  const content = buildReceiptTemplate(sale);
+  const iframe = document.getElementById('print-frame');
+  
+  const frameDoc = iframe.contentWindow || iframe.contentDocument.document || iframe.contentDocument;
+  frameDoc.document.open();
+  frameDoc.document.write(`
+    <html>
+      <head>
+        <title>Print Receipt</title>
+        <style>
+          @page { margin: 0; }
+          body { margin: 0; padding: 10px; font-family: monospace; }
+        </style>
+      </head>
+      <body>
+        ${content}
+      </body>
+    </html>
+  `);
+  frameDoc.document.close();
+
+  setTimeout(() => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }, 250);
+}
+
+function shareWhatsApp(saleId){
+  const sale = SALES.find(s=>s.id===saleId);
+  if(!sale) return;
+  const phone = sale.customerPhone || prompt('Enter WhatsApp Phone Number (with country code, e.g. 94771234567):');
+  if(!phone) return;
+
+  let text = `*--- ${SETTINGS.companyName} ---*\n`;
+  text += `Invoice: ${sale.invoiceNo}\nDate: ${fmtDate(sale.date)}\n\n`;
+  sale.items.forEach(i=>{ text += `${i.name} x${i.qty} = ${fmt(i.price*i.qty)}\n`; });
+  text += `\n*Total: ${fmt(sale.total)}*\nThank you for shopping with us!`;
+
+  const url = `https://api.whatsapp.com/send?phone=${phone.replace(/[^0-9]/g,'')}&text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
+
+/* =========================================================
+   CUSTOMERS & OTHER VIEWS
+========================================================= */
+function renderCustomers(){
+  document.getElementById('main-content').innerHTML = `
+    <div class="card p-4">
+      <h3 class="font-bold mb-3">Customer Loyalty & Credit Book (ණය පොත)</h3>
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Loyalty Points</th><th>Credit Balance (ණය)</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${CUSTOMERS.length ? CUSTOMERS.map(c=>`
+            <tr>
+              <td class="font-semibold">${esc(c.name)}</td>
+              <td>${esc(c.phone)}</td>
+              <td><span class="badge bg-green-100 text-green-600">${c.points||0} pts</span></td>
+              <td class="font-bold ${c.credit>0?'text-red-600':'text-gray-500'}">${fmt(c.credit||0)}</td>
+              <td>
+                ${c.credit > 0 ? `<button class="btn btn-primary btn-sm" onclick="settleCredit('${c.id}')">Settle Credit</button>` : '<span class="text-xs text-gray-400">No Credit</span>'}
+              </td>
+            </tr>`).join('') : `<tr><td colspan="5" class="text-center py-4 text-gray-400">No registered customers</td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function settleCredit(id){
+  const c = CUSTOMERS.find(cust=>cust.id===id);
+  const amount = parseFloat(prompt(`Enter settlement amount for ${c.name} (Current Credit: ${fmt(c.credit)}):`));
+  if(amount > 0){
+    c.credit = Math.max(0, c.credit - amount);
+    save(DB_KEYS.customers, CUSTOMERS);
+    toast('Credit settled successfully','success');
+    renderCustomers();
+  }
+}
+
+function renderCategories(){
+  document.getElementById('main-content').innerHTML = `
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-bold">Categories</h3>
+      <button class="btn btn-primary" onclick="openCatModal()">+ Add Category</button>
+    </div>
+    <div class="card p-4">
+      ${CATEGORIES.map(c=>`<div class="flex justify-between py-2 border-b"><span>${esc(c.name)}</span></div>`).join('')}
+    </div>`;
+}
+function openCatModal(){
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-5 max-w-sm">
+        <h3 class="font-bold mb-3">Add Category</h3>
+        <input id="cat-name-input" placeholder="Category Name" class="mb-4">
+        <button class="btn btn-primary w-full" onclick="saveCat()">Save</button>
+      </div>
+    </div>`;
+}
+function saveCat(){
+  const val = document.getElementById('cat-name-input').value.trim();
+  if(!val) return;
+  CATEGORIES.push({id:uid(), name:val});
+  save(DB_KEYS.categories, CATEGORIES);
+  closeModal(); renderCategories();
+}
+
+function renderSales(){
+  document.getElementById('main-content').innerHTML = `
+    <div class="card p-4">
+      <h3 class="font-bold mb-3">Sales History</h3>
+      <table>
+        <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total</th><th>Action</th></tr></thead>
+        <tbody>
+          ${SALES.map(s=>`
+            <tr>
+              <td>${s.invoiceNo}</td>
+              <td>${fmtDate(s.date)}</td>
+              <td>${esc(s.customerName||'Walk-in')}</td>
+              <td><span class="badge bg-blue-100 text-blue-600">${(s.paymentMethod||'cash').toUpperCase()}</span></td>
+              <td>${fmt(s.total)}</td>
+              <td class="flex gap-1">
+                <button class="btn btn-secondary btn-sm" onclick="showReceipt('${s.id}')">Receipt</button>
+                <button class="btn btn-warning btn-sm" onclick="shareWhatsApp('${s.id}')">WhatsApp</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderReports(){
+  const totalRev = SALES.reduce((a,b)=>a+b.total,0);
+  const totalProfit = SALES.reduce((a,b)=>a+b.profit,0);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="card p-4">
+        <h3 class="font-bold mb-2">Total Revenue & Profit</h3>
+        <div class="text-2xl font-bold text-green-600">${fmt(totalRev)}</div>
+        <div class="text-sm text-gray-500">Net Profit: ${fmt(totalProfit)}</div>
+        <div class="w-full bg-gray-200 h-4 rounded-full mt-3 overflow-hidden">
+          <div class="bg-green-500 h-full" style="width: ${totalRev? Math.min(100, (totalProfit/totalRev)*100) : 0}%"></div>
+        </div>
+      </div>
+      <div class="card p-4">
+        <h3 class="font-bold mb-2">Payment Methods Breakdown</h3>
+        <div class="text-xs space-y-2 mt-2">
+          ${['cash','card','online','credit'].map(m=>{
+            const count = SALES.filter(s=>(s.paymentMethod||'cash')===m).length;
+            const pct = SALES.length ? ((count/SALES.length)*100).toFixed(0) : 0;
+            return `
+              <div>
+                <div class="flex justify-between"><span>${m.toUpperCase()}</span><span>${count} sales (${pct}%)</span></div>
+                <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                  <div class="bg-blue-500 h-full" style="width:${pct}%"></div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderSettings(){
+  document.getElementById('main-content').innerHTML = `
+    <div class="card p-4 max-w-md">
+      <h3 class="font-bold mb-4">Settings & Security</h3>
+      <div class="flex flex-col gap-3">
+        <div><label class="text-xs font-semibold">Store Name</label><input id="s-name" value="${esc(SETTINGS.companyName)}"></div>
+        <div><label class="text-xs font-semibold">Phone</label><input id="s-phone" value="${esc(SETTINGS.phone||'')}"></div>
+        <div><label class="text-xs font-semibold">Address</label><input id="s-address" value="${esc(SETTINGS.address||'')}"></div>
+        <div><label class="text-xs font-semibold">Currency</label><input id="s-curr" value="${esc(SETTINGS.currency)}"></div>
+        <div><label class="text-xs font-semibold">Tax %</label><input id="s-tax" type="number" value="${SETTINGS.taxPercent}"></div>
+        <div class="border-t pt-3 mt-1" style="border-color:var(--border)">
+          <label class="text-xs font-semibold text-red-600">App Login Password</label>
+          <input id="s-pass" type="text" value="${esc(SETTINGS.systemPassword||'1234')}">
+        </div>
+        <button class="btn btn-primary mt-2" onclick="saveSettings()">Save Settings</button>
+      </div>
+
+      <div class="border-t pt-4 mt-6" style="border-color:var(--border)">
+        <h4 class="font-bold text-red-600 mb-1">Danger Zone</h4>
+        <p class="text-xs text-gray-400 mb-3">Clear all products, sales, customers, and data completely from this Browser.</p>
+        <button class="btn btn-danger w-full" onclick="openResetModal()">⚠️ Reset All System Data</button>
+      </div>
+    </div>`;
+}
+
+function saveSettings(){
+  SETTINGS.companyName = document.getElementById('s-name').value.trim() || 'Demo Store';
+  SETTINGS.phone = document.getElementById('s-phone').value.trim();
+  SETTINGS.address = document.getElementById('s-address').value.trim();
+  SETTINGS.currency = document.getElementById('s-curr').value.trim() || '$';
+  SETTINGS.taxPercent = parseFloat(document.getElementById('s-tax').value) || 0;
+  SETTINGS.systemPassword = document.getElementById('s-pass').value.trim() || '1234';
+  
+  save(DB_KEYS.settings, SETTINGS);
+  applyBrand(); toast('Settings & Password Saved','success');
+}
+
+/* =========================================================
+   RESET DATA MODAL & LOGIC
+========================================================= */
+function openResetModal(){
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box p-6 max-w-sm text-center">
+        <div class="text-4xl mb-2">⚠️</div>
+        <h3 class="font-bold text-lg text-red-600 mb-1">Reset All Data?</h3>
+        <p class="text-xs text-gray-500 mb-4">මේ button එක click කළොත් ඔයාගේ System එකේ තියෙන Products, Sales History සහ Customer Data සදාකාලිකවම මැකී යනු ඇත.</p>
+        
+        <label class="text-xs font-semibold block text-left mb-1">Confirm System Password:</label>
+        <input id="reset-pass-input" type="password" placeholder="Enter Password" class="text-center text-lg mb-4" onkeydown="if(event.key==='Enter') confirmResetData()">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-danger" onclick="confirmResetData()">Confirm Reset</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>document.getElementById('reset-pass-input').focus(), 100);
+}
+
+function confirmResetData(){
+  const input = document.getElementById('reset-pass-input').value;
+  if(input === (SETTINGS.systemPassword || '1234')){
+    localStorage.clear();
+    alert('සියලුම Data සාර්ථකව Reset කරන ලදී!');
+    location.reload();
+  } else {
+    alert('Password එක වැරදියි! නැවත උත්සාහ කරන්න.');
+    document.getElementById('reset-pass-input').value = '';
+    document.getElementById('reset-pass-input').focus();
+  }
+}
+
+/* =========================================================
+   INIT SYSTEM
+========================================================= */
+function initSystem(){
+  applyTheme();
+  applyBrand();
+  tickClock();
+  renderNav();
+  navigate('dashboard');
+}
+
+// Focus on Password Input on Load
+window.onload = function(){
+  document.getElementById('login-pass-input').focus();
+};
+</script>
+</body>
+</html>
+
